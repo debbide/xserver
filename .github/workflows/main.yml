@@ -1,0 +1,73 @@
+name: 🪄 XServer自动签到
+
+on:
+  schedule:
+    -  cron: "30 5 * * *"
+    -  cron: "55 15 * * *" # 每天 UTC 05:30 和 15:55（北京时间分别是 13:30 和 次日 00:55，因为我自己的时间是16:50分之后可以续期，我给了55分钟的预留，这里为什么要2个时间点呢，因为怕一次时间点由于github的定时任务延迟会错过续期时间，也就是16:50这个时间段如果错过后，10个小时后执行第二次定时。一般就不会错过了）
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 缓存依赖
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install chromium
+
+      - name: 🎲 定时任务基础上随机延迟（0-119秒）
+        run: |
+          delay=$((RANDOM % 120))
+          echo "Random delay: ${delay}s"
+          sleep $delay
+
+      - name: 运行脚本
+        env:
+          XSERVER_EMAIL: ${{ secrets.XSERVER_EMAIL }}
+          XSERVER_PASSWORD: ${{ secrets.XSERVER_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
+        run: python renew.py
+
+      # ⏱️ 提交 time.txt 到仓库(用于解决60天无文件变化的限制)
+      - name: Commit time.txt to repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ ! -f time.txt ]; then
+            echo "首次生成时间：$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          else
+            echo "$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          fi
+
+          git add time.txt
+
+          if git diff --cached --quiet; then
+            echo "无变化，无需提交"
+          else
+            git commit -m "⏱️ 更新时间文件: $(date +'%Y-%m-%d %H:%M:%S')"
+            git push origin HEAD:main
+          fi
