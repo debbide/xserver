@@ -33,6 +33,17 @@ jobs:
           pip install -r requirements.txt
           python -m playwright install chromium
 
+      - name: 设置代理隧道 (Gost)
+        env:
+          PROXY_STR: ${{ secrets.PROXY_SERVER }}
+        run: |
+          wget -q https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
+          gunzip gost-linux-amd64-2.11.5.gz
+          chmod +x gost-linux-amd64-2.11.5
+          nohup ./gost-linux-amd64-2.11.5 -L :1080 -F "$PROXY_STR" > gost.log 2>&1 &
+          sleep 5
+          cat gost.log || true
+
       - name: 🎲 定时任务基础上随机延迟（0-119秒）
         run: |
           delay=$((RANDOM % 120))
@@ -45,7 +56,7 @@ jobs:
           XSERVER_PASSWORD: ${{ secrets.XSERVER_PASSWORD }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          PROXY_SERVER: ${{ secrets.PROXY_SERVER }}
+          PROXY_SERVER: socks5://127.0.0.1:1080
         run: python renew.py
 
       # ⏱️ 提交 time.txt 到仓库(用于解决60天无文件变化的限制)
