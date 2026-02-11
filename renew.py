@@ -42,6 +42,10 @@ TARGET_URL = "https://secure.xserver.ne.jp/xapanel/login/xmgame"
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or ""
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or ""
 
+# 面板上报配置
+PANEL_URL = "https://upp.bcbc.pp.ua/api/callback"
+SERVER_NAME = "xserver" # 面板里配置的关键词
+
 # =====================================================================
 #                        Telegram 推送模块
 # =====================================================================
@@ -169,6 +173,42 @@ class XServerAutoLogin:
         
         # Telegram 推送器
         self.telegram = TelegramNotifier()
+    
+    def report_status(self, remaining_seconds):
+        """上报状态到面板"""
+        try:
+            payload = {
+                "server_name": SERVER_NAME,
+                "remaining_time": remaining_seconds,
+                "status": "up"
+            }
+            resp = requests.post(PANEL_URL, json=payload, timeout=10)
+            print(f"✅ 上报成功: {resp.json()}")
+        except Exception as e:
+            print(f"❌ 上报失败: {e}")
+
+    def parse_remaining_seconds(self, time_str):
+        """
+        解析剩余时间字符串为秒数
+        例如: "30時間57分" -> 111420
+        """
+        try:
+            hours = 0
+            minutes = 0
+            
+            h_match = re.search(r'(\d+)時間', time_str)
+            if h_match:
+                hours = int(h_match.group(1))
+            
+            m_match = re.search(r'(\d+)分', time_str)
+            if m_match:
+                minutes = int(m_match.group(1))
+            
+            total_seconds = (hours * 3600) + (minutes * 60)
+            return total_seconds
+        except Exception as e:
+            print(f"⚠️ 解析剩余秒数失败: {e}")
+            return 0
     
     
     # =================================================================
@@ -508,6 +548,10 @@ class XServerAutoLogin:
                             remaining_raw = remaining_match.group(1)
                             remaining_formatted = self.format_remaining_time(remaining_raw)
                             print(f"⏰ 剩余时间: {remaining_formatted}")
+                            
+                            # 上报状态到面板
+                            remaining_seconds = self.parse_remaining_seconds(remaining_formatted)
+                            self.report_status(remaining_seconds)
                         
                         # 提取到期时间
                         expiry_match = re.search(r'\((\d{4}-\d{2}-\d{2})まで\)', element_text)
