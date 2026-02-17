@@ -170,6 +170,7 @@ class XServerAutoLogin:
         self.old_expiry_time = None      # 原到期时间
         self.new_expiry_time = None      # 新到期时间
         self.renewal_status = "Unknown"  # 续期状态: Success/Unexpired/Failed/Unknown
+        self.remaining_seconds = 0           # 剩余秒数(用于最终上报)
         
         # Telegram 推送器
         self.telegram = TelegramNotifier()
@@ -493,6 +494,8 @@ class XServerAutoLogin:
                         
                         # 获取服务器时间信息
                         await self.get_server_time_info()
+                        # 点击升级按钮（进入续期流程）
+                        await self.click_upgrade_button()
                     else:
                         print(f"⚠️ 当前URL不是预期的游戏管理页面")
                         print(f"   预期: {expected_game_url}")
@@ -502,6 +505,7 @@ class XServerAutoLogin:
                         
                         # 即使URL不完全匹配，也尝试获取服务器信息
                         await self.get_server_time_info()
+                        await self.click_upgrade_button()
                         
                 except Exception as e:
                     print(f"❌ 查找或点击ゲーム管理按钮时出错: {e}")
@@ -549,9 +553,8 @@ class XServerAutoLogin:
                             remaining_formatted = self.format_remaining_time(remaining_raw)
                             print(f"⏰ 剩余时间: {remaining_formatted}")
                             
-                            # 上报状态到面板
-                            remaining_seconds = self.parse_remaining_seconds(remaining_formatted)
-                            self.report_status(remaining_seconds)
+                            # 暂存剩余秒数，等流程结束后统一上报
+                            self.remaining_seconds = self.parse_remaining_seconds(remaining_formatted)
                         
                         # 提取到期时间
                         expiry_match = re.search(r'\((\d{4}-\d{2}-\d{2})まで\)', element_text)
@@ -566,9 +569,6 @@ class XServerAutoLogin:
                         
             except Exception as e:
                 print(f"❌ 获取时间信息时出错: {e}")
-            
-            # 点击升级按钮
-            await self.click_upgrade_button()
             
         except Exception as e:
             print(f"❌ 获取服务器时间信息失败: {e}")
@@ -999,6 +999,23 @@ class XServerAutoLogin:
             
             print("🎉 XServer GAME 自动登录流程完成!")
             await self.take_screenshot("login_completed")
+            
+            # 如果续期成功，重新获取最新时间用于上报
+            if self.renewal_status == "Success":
+                print("🔄 续期成功，重新获取最新剩余时间...")
+                try:
+                    game_url = "https://secure.xserver.ne.jp/xmgame/game/index"
+                    await self.page.goto(game_url, wait_until='load')
+                    await asyncio.sleep(3)
+                    await self.get_server_time_info()
+                    print(f"✅ 已刷新剩余时间: {self.remaining_seconds} 秒")
+                except Exception as e:
+                    print(f"⚠️ 刷新时间失败，将使用续期前的时间上报: {e}")
+            
+            # 统一上报状态到面板（使用最新时间）
+            if self.remaining_seconds > 0:
+                print("📡 正在上报最终状态到面板...")
+                self.report_status(self.remaining_seconds)
             
             # 生成report-notify.md文件和推送Telegram
             self.generate_report_notify()
