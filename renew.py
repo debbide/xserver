@@ -556,14 +556,16 @@ class XServerAutoLogin:
                             # 暂存剩余秒数，等流程结束后统一上报
                             self.remaining_seconds = self.parse_remaining_seconds(remaining_formatted)
                         
-                        # 提取到期时间
-                        expiry_match = re.search(r'\((\d{4}-\d{2}-\d{2})まで\)', element_text)
+                        # 提取到期时间 (包含具体时间部分)
+                        expiry_match = re.search(r'\((\d{4}-\d{2}-\d{2}[^)]*)まで\)', element_text)
                         if expiry_match:
-                            expiry_raw = expiry_match.group(1)
+                            expiry_raw = expiry_match.group(1).strip()
                             expiry_formatted = self.format_expiry_date(expiry_raw)
-                            print(f"📅 到期时间: {expiry_formatted}")
-                            # 记录原到期时间
-                            self.old_expiry_time = expiry_formatted
+                            print(f"📅 查找到的到期时间: {expiry_formatted}")
+                            # 仅在第一次获取时记录为“原到期时间”
+                            if self.old_expiry_time is None:
+                                self.old_expiry_time = expiry_formatted
+                                print("✅ 已记录原到期时间")
                         
                         break
                         
