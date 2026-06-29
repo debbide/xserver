@@ -59,6 +59,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           PROXY_SERVER: socks5://127.0.0.1:1080
+          PANEL_URL: ${{ secrets.PANEL_URL }}        # 新增
+          SERVER_NAME: ${{ secrets.SERVER_NAME }} 
         run: python renew.py
 
       # ⏱️ 提交 time.txt 到仓库(用于解决60天无文件变化的限制)
