@@ -44,7 +44,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or ""
 
 # 面板上报配置 - 可选，不填则不上报
 PANEL_URL   = os.getenv("PANEL_URL", "")
-SERVER_NAME = os.getenv("SERVER_NAME", "xserver")
+SERVER_NAME = os.getenv("SERVER_NAME", "")
 
 # =====================================================================
 #                        Telegram 推送模块
